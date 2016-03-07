@@ -50,34 +50,6 @@
           #:on-success (λ () body0 body ...)
           #:on-failure (λ (reason) reason))))]))
 
-(define-syntax (define-jsonp/auth/author stx)
-  (syntax-case stx ()
-    [(_ (f pat ...) body0 body ...)
-     (quasisyntax/loc stx
-       (define-jsonp (f ['email email] ['passwd passwd] ['pkg author-of] pat ...)
-         (log! "~a handler" #,(syntax->datum #'f))
-         (authenticate
-          #,(syntax->datum #'f)
-          #:as-author author-of
-          #:email email
-          #:password passwd
-          #:on-success (λ () body0 body ...)
-          #:on-failure (λ (reason) reason))))]))
-
-(define-syntax (define-jsonp/auth/curator stx)
-  (syntax-case stx ()
-    [(_ (f pat ...) body0 body ...)
-     (quasisyntax/loc stx
-       (define-jsonp (f ['email email] ['passwd passwd] pat ...)
-         (log! "~a handler" #,(syntax->datum #'f))
-         (authenticate
-          #,(syntax->datum #'f)
-          #:as-curator #t
-          #:email email
-          #:password passwd
-          #:on-success (λ () body0 body ...)
-          #:on-failure (λ (reason) reason))))]))
-
 (define email-codes (make-hash))
 (define-jsonp (jsonp/authenticate ['email email] ['passwd passwd] ['code email-code])
   (log! "authenticate handler")
@@ -146,7 +118,7 @@
   (signal-update! (packages-of (authenticated-as)))
   #t)
 
-(define-jsonp/auth/author (jsonp/package/del ['pkg pkg])
+(define-jsonp/auth (jsonp/package/del ['pkg pkg])
   (package-remove! pkg)
   (signal-static! empty)
   #t)
@@ -156,14 +128,11 @@
    ['pkg pkg] ['name mn-name] ['description mn-desc] ['source mn-source])
   (cond
     [(equal? pkg "")
-     (unless (package-exists? mn-name)
-       (package-info-set! (hasheq 'name mn-name
-                                  'source mn-source
-                                  'author (authenticated-as)
-                                  'description mn-desc
-                                  'last-edit (current-seconds)))
-       (signal-update! (list mn-name))
-       #t)]
+     (if (new-package-info mn-name mn-source (authenticated-as) mn-desc (current-seconds))
+         (begin
+           (signal-update! (list mn-name))
+           #t)
+         #f)]
     [else
      (let ([pkg-info (package-info pkg)])
        (cond
@@ -186,7 +155,7 @@
           #t]
          [else #f]))]))
 
-(define-jsonp/auth/author (jsonp/package/version/add ['pkg pkg] ['version version] ['source source])
+(define-jsonp/auth (jsonp/package/version/add ['pkg pkg] ['version version] ['source source])
   (let ([pkg-info (package-info pkg)])
     (package-info-set! (hash-update pkg-info 'versions
                                     (λ (v-ht)
@@ -197,7 +166,7 @@
     (signal-update! (list pkg))
     #t))
 
-(define-jsonp/auth/author (jsonp/package/version/del ['pkg pkg] ['version version])
+(define-jsonp/auth (jsonp/package/version/del ['pkg pkg] ['version version])
   (let ([pkg-info (package-info pkg)])
     (package-info-set! (hash-update pkg-info 'versions
                                     (λ (v-ht)
@@ -213,14 +182,14 @@
     (signal-static! (list pkg))
     #t))
 
-(define-jsonp/auth/author (jsonp/package/tag/del ['pkg pkg] ['tag tag])
+(define-jsonp/auth (jsonp/package/tag/del ['pkg pkg] ['tag tag])
   (let* ([pkg-info (package-info pkg)]
          [new-tags (remove tag (package-ref pkg-info 'tags))])
     (package-info-set! (hash-set pkg-info 'tags new-tags))
     (signal-static! (list pkg))
     #t))
 
-(define-jsonp/auth/author (jsonp/package/author/add ['pkg pkg] ['author author])
+(define-jsonp/auth (jsonp/package/author/add ['pkg pkg] ['author author])
   (let* ([pkg-info (package-info pkg)]
          [authors  (package-authors pkg-info)])
     (let ([new-authors (string-join (cons author authors))])
@@ -228,7 +197,7 @@
           (signal-static! (list pkg))
           #t)))
 
-(define-jsonp/auth/author (jsonp/package/author/del ['pkg pkg] ['author author])
+(define-jsonp/auth (jsonp/package/author/del ['pkg pkg] ['author author])
   (let* ([pkg-info (package-info pkg)]
          [authors  (package-authors pkg-info)])
     (if (> (length authors) 1)
@@ -238,7 +207,7 @@
           #t)
         #f)))
 
-(define-jsonp/auth/curator (jsonp/package/curate ['pkg pkg] ['ring ring-s])
+(define-jsonp/auth (jsonp/package/curate ['pkg pkg] ['ring ring-s])
   (let* ([info (package-info pkg)]
          [ring-n (string->number ring-s)])
     (package-info-set! (hash-set info 'ring (min 2 (max 0 ring-n))))
@@ -250,7 +219,6 @@
   (match-define (list email given-password pis) req-data)
   (authenticate
    'api/upload
-   #:as-curator #t
    #:email email
    #:password given-password
    #:on-success

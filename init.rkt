@@ -1,12 +1,15 @@
 #lang racket/base
 
-(require racket/file
+(require racket/contract
+         racket/file
          web-server/http/id-cookie
          pkg/private/stage)
 
-(require "config.rkt")
+(require "config.rkt"
+         "monitor.rkt")
 
-(provide initialize)
+(provide
+ (contract-out [initialize (apply and/c deprivilege/c (map grant-curator/c curation-administrators))]))
 
 (define (initialize)
   (make-directory* root-path)
@@ -28,4 +31,8 @@
 
   (make-directory* cache-path)
 
-  (make-directory* pkgs-path))
+  (make-directory* pkgs-path)
+
+  (make-directory* static-path)
+
+  (make-directory* (build-path static-path "pkg")))

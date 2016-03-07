@@ -1,14 +1,25 @@
 #lang racket/base
 
 (require racket/file
+         racket/contract
          (prefix-in bcrypt: bcrypt))
 
 (require "config.rkt"
          "log.rkt"
          "pkgs.rkt"
+         "monitor.rkt"
          "utils.rkt")
 
-(provide authenticate authenticated-as update-password curation-administrator?)
+(provide
+ (contract-out
+  [authenticate (->i ([operation symbol?]
+                      #:email [email string?]
+                      #:password [password (λ (x) (displayln x) (string? x))]
+                      #:on-success [success (email) (->a () #:auth () (as-user/c email) any)]
+                      #:on-failure [failure (-> symbol? any)])
+                     [result any/c])]
+  [update-password (-> string? string? void)])
+ authenticated-as curation-administrator?)
 
 (define current-user (make-parameter #f))
 
@@ -16,7 +27,7 @@
   (current-user))
 
 (define (curation-administrator? email)
-  (member email curation-adminstrators))
+  (member email curation-administrators))
 
 (define (check-password email given-password)
   (define password-path (extend-path users.new-path email))
@@ -33,19 +44,19 @@
     [else 'not-author]))
 
 (define (authenticate operation
-                      #:as-curator [as-curator #f]
-                      #:as-author  [pkg #f]
                       #:email email
                       #:password given-password
                       #:on-success onSuccess
                       #:on-failure onFailure)
-  (let ([password-okay? (check-password email given-password)]
-        [curator-okay?  (or (not as-curator) (curation-administrator? email))]
-        [author-okay?   (or (not pkg) (check-author email pkg))])
+  (printf "recieved arguments:~n operation: ~a~n email: ~a~n password: ~a~n on-success: ~a~n on-failure: ~a~n"
+          operation
+          email
+          given-password
+          onSuccess
+          onFailure)
+  (let ([password-okay? (check-password email given-password)])
     (cond
       [(symbol? password-okay?) (onFailure password-okay?)]
-      [(symbol? curator-okay?)  (onFailure curator-okay?)]
-      [(symbol? author-okay?)   (onFailure author-okay?)]
       [else
        (parameterize ([current-user email])
          (onSuccess))])))

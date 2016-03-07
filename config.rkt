@@ -23,7 +23,7 @@
 (define s3-bucket "pkgs.racket-lang.org")
 (define s3cmd-path (find-executable-path "s3cmd"))
 
-(define curation-adminstrators
+(define curation-administrators
   '("jay.mccarthy@gmail.com"
     "mflatt@cs.utah.edu"
     "samth@ccs.neu.edu"

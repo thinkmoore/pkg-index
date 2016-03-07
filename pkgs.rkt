@@ -17,6 +17,13 @@
   [package-list (-> (listof valid-name?))]
   [packages-of (-> valid-author? (listof valid-name?))]
   [package-info (-> valid-name? (or/c package-info/c #f))]
+  [new-package-info (->a ([name valid-name?]
+                          [source string?]
+                          [author valid-author?]
+                          [desc string?]
+                          [last-edit number?])
+                         #:auth (author) (is-author/c (hash 'author author))
+                         [result package-info/c])]
   [package-info-set! (->a ([pkg package-info/c])
                           #:auth (pkg) (is-author/c pkg)
                           [result void])]
@@ -175,6 +182,18 @@
       (hash-merge version-ht no-version))]
    [else
     no-version]))
+
+(define (new-package-info name source author desc last-edit)
+  (let ([pkg-info (hash 'name name
+                        'source source
+                        'author author
+                        'description desc
+                        'last-edit last-edit)])
+    (if (package-exists? name)
+        #f
+        (begin
+          (package-info-set! pkg-info)
+          pkg-info))))
 
 (define (package-info-set! pkg-info)
   (write-to-file pkg-info (extend-path pkgs-path (package-ref pkg-info 'name))
