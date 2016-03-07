@@ -4,6 +4,8 @@
          web-server/http
          json)
 
+(require (for-syntax racket/base))
+
 (require "utils.rkt")
 
 (provide define-jsonp
@@ -42,8 +44,19 @@
      (hash-ref og 'callback)
      (f (hash-remove (hash-remove og 'callback) '_)))))
 
-(define-syntax-rule (define-jsonp (f . pat) . body)
-  (define f
-    (make-jsonp-responder
-     (match-lambda [(hash-table . pat) . body]
-                   [x (error 'f "ill formatted request: ~v" x)]))))
+(define-match-expander hash-entries
+  (lambda (stx)
+    (syntax-case stx ()
+      [(_ [key val] ...)
+       #'(and (app (λ (m) (hash-ref m key)) val)
+              ...)])))
+
+(define-syntax (define-jsonp stx)
+  (syntax-case stx ()
+    [(_ (f pat ...) body0 body ...)
+     (quasisyntax/loc stx
+       (define f
+         (make-jsonp-responder
+          (match-lambda [(hash-entries pat ...) (begin body0 body ...)]
+                        [x (error 'f "ill formatted request: ~v~ntried to match: ~v" x
+                                  '#,(syntax->datum #'(pat ...)))]))))]))

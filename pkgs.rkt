@@ -15,7 +15,7 @@
  (contract-out
   [package-list (-> (listof valid-name?))]
   [packages-of (-> valid-author? (listof valid-name?))]
-  [package-info (-> valid-name? package-info/c)]
+  [package-info (-> valid-name? (or/c package-info/c #f))]
   [package-info-set! (-> package-info/c void)]
   [package-ref (-> package-info/c package-info-key? any/c)]
   [package-author? (-> package-info/c valid-author? boolean?)]
@@ -40,10 +40,17 @@
 (define package-info-key-contracts
   (hash 'name valid-name?
         'author valid-author?
+        'authors (listof valid-author?)
         'source any/c
+        'description (or/c string? #f)
+        'dependencies any/c
+        'modules any/c
+        'conflicts any/c
+        'build any/c
+        'search-terms any/c
         'ring (integer-in 0 2)
-        'checksum string?
-        'checksum-error string?
+        'checksum (or/c string? #f)
+        'checksum-error (or/c string? #f)
         'tags (listof valid-tag?)
         'versions any/c
         'last-checked number?
@@ -80,15 +87,8 @@
            (raise-blame-error
             blame val
             '(expected: "~a" given: "~e")
-            "package-info/c" val))
-         (for-each
-          (λ (k)
-            (unless (hash-has-key? val 'author)
-              (raise-blame-error
-               blame val
-               '(expected: "~a" given: "~e" "~n  Missing required field: ~e")
-               "package-info/c" val k)))
-          package-info-required-keys)
+            'package-info/c val))
+            package-info-required-keys)
          (chaperone-hash
           val
           (λ (h k)
@@ -111,7 +111,7 @@
                (blame-swap blame) val
                "~n  Cannot remove required field: ~e" k))
             k)
-          (λ (h k) k)))))))
+          (λ (h k) k))))))
 
 (define (package-ref pkg-info key)
   (hash-ref pkg-info key
@@ -125,11 +125,13 @@
                 [(or 'last-checked 'last-edit 'last-updated) -inf.0]))))
 
 (define (package-authors pkg-info)
-  (let ([authors (hash-ref pkg-info 'author)])
+  (let ([authors (hash-ref pkg-info 'author "")])
     (string-split authors)))
 
 (define (package-author? pkg-info author)
-  (member author (package-authors pkg-info)))
+  (if (member author (package-authors pkg-info))
+      #t
+      #f))
 
 (define (package-tags-normalize ts)
   (remove-duplicates (sort ts string-ci<?)))

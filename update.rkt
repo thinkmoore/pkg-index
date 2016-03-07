@@ -1,13 +1,18 @@
 #lang racket/base
+
 (require racket/list
          racket/function
          racket/system
          racket/package
          pkg/private/stage
-         (prefix-in pkg: pkg/lib)
-         "common.rkt"
+         (prefix-in pkg: pkg/lib))
+
+(require "config.rkt"
+         "log.rkt"
          "notify.rkt"
-         "static.rkt")
+         "pkgs.rkt"
+         "static.rkt"
+         "utils.rkt")
 
 (define (update-all)
   (update-checksums #f (package-list)))
@@ -34,7 +39,6 @@
                    x2))])
             (define i (package-info pkg-name))
             (package-info-set!
-             pkg-name
              (hash-set i 'checksum-error
                        (regexp-replace*
                         (regexp (github-client_secret))
@@ -103,7 +107,7 @@
        (define* i
          (hash-set i 'checksum-error #f))
        (log! "\twriting with checksum ~v" (hash-ref i 'checksum))
-       (package-info-set! pkg-name i)))
+       (package-info-set! i)))
     changed?))
 
 (define (update-from-content i)
@@ -130,21 +134,14 @@
       (update-pkgs pkgs)]))
   (log! "update: changes ~v" changed)
   (signal-static! changed))
-(define (run-update! pkgs beat?)
-  (run! do-update! pkgs)
-  (when beat?
-    (system* (path->string (build-path src "beat-update.sh")))))
+(define (run-update! pkgs)
+  (run! do-update! pkgs))
 (define run-sema (make-semaphore 1))
-(define (signal-update!* pkgs beat?)
-  (safe-run! run-sema (λ () (run-update! pkgs beat?))))
 (define (signal-update! pkgs)
-  (signal-update!* pkgs #f))
-(define (signal-update!/beat pkgs)
-  (signal-update!* pkgs #t))
+  (safe-run! run-sema (λ () (run-update! pkgs))))
 
 (provide do-update!
-         signal-update!
-         signal-update!/beat)
+         signal-update!)
 
 (module+ main
   (require racket/cmdline)

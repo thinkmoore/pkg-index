@@ -1,8 +1,21 @@
 #lang racket/base
+
 (require racket/list
          racket/contract
          web-server/http
          web-server/dispatch)
+
+(provide
+ (contract-out
+  [pkg-index/basic+versions
+   (-> (-> (listof string?))
+       (-> string? #:version (or/c string? false/c)
+           (hash/c symbol? any/c))
+       (-> request? response?))]
+  [pkg-index/basic
+   (-> (-> (listof string?))
+       (-> string? (hash/c symbol? any/c))
+       (-> request? response?))]))
 
 (define (response/sexpr v)
   (response 200 #"Okay" (current-seconds)
@@ -67,22 +80,3 @@
    get-pkgs
    (λ (pkg-name #:version version)
      (pkg-name->info pkg-name))))
-
-(provide
- (contract-out
-  [response/sexpr
-   (-> any/c
-       response?)]
-  [request-binding/string
-   (->* (request? string?)
-        (boolean?)
-        (or/c string? false/c))]
-  [pkg-index/basic+versions
-   (-> (-> (listof string?))
-       (-> string? #:version (or/c string? false/c)
-           (hash/c symbol? any/c))
-       (-> request? response?))]
-  [pkg-index/basic
-   (-> (-> (listof string?))
-       (-> string? (hash/c symbol? any/c))
-       (-> request? response?))]))

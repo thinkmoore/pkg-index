@@ -7,8 +7,9 @@
          web-server/http
          web-server/servlet-env
          web-server/dispatch
-         net/url
-         net/sendmail)
+         net/url)
+
+(require (for-syntax racket/base))
 
 (require "config.rkt"
          "log.rkt"
@@ -21,37 +22,65 @@
          "update.rkt"
          "utils.rkt")
 
-(define-syntax-rule (define-jsonp/auth (f . pat) . body)
-  (define-jsonp (f ['email email] ['passwd passwd] . pat)
-    (authenticate
-     (syntax->datum f)
-     #:email email
-     #:password passwd
-     #:on-success (λ () body)
-     #:on-failure (λ (reason) reason))))
+(define (send-mail-message from	 	 	 	 
+                           subject	 	 	 	 
+                           to	 	 	 	 
+                           cc	 	 	 	 
+                           bcc	 	 	 	 
+                           body)
+  (log! "Would have sent email:")
+  (log! "from: ~a" from)
+  (log! "subject: ~a" subject)
+  (log! "to: ~a" to)
+  (log! "cc: ~a" cc)
+  (log! "bcc: ~a" cc)
+  (for-each log! body)
+  (log! "EOF"))
 
-(define-syntax-rule (define-jsonp/auth/author (f . pat) . body)
-  (define-jsonp (f ['email email] ['passwd passwd] ['pkg author-of] . pat)
-    (authenticate
-     (syntax->datum f)
-     #:as-author author-of
-     #:email email
-     #:password passwd
-     #:on-success (λ () body)
-     #:on-failure (λ (reason) reason))))
+(define-syntax (define-jsonp/auth stx)
+  (syntax-case stx ()
+    [(_ (f pat ...) body0 body ...)
+     (quasisyntax/loc stx
+       (define-jsonp (f ['email email] ['passwd passwd] pat ...)
+         (log! "~a handler" #,(syntax->datum #'f))
+         (authenticate
+          #,(syntax->datum #'f)
+          #:email email
+          #:password passwd
+          #:on-success (λ () body0 body ...)
+          #:on-failure (λ (reason) reason))))]))
 
-(define-syntax-rule (define-jsonp/auth/curator (f . pat) . body)
-  (define-jsonp (f ['email email] ['passwd passwd] . pat)
-    (authenticate
-     (syntax->datum f)
-     #:as-curator #t
-     #:email email
-     #:password passwd
-     #:on-success (λ () body)
-     #:on-failure (λ (reason) reason))))
+(define-syntax (define-jsonp/auth/author stx)
+  (syntax-case stx ()
+    [(_ (f pat ...) body0 body ...)
+     (quasisyntax/loc stx
+       (define-jsonp (f ['email email] ['passwd passwd] ['pkg author-of] pat ...)
+         (log! "~a handler" #,(syntax->datum #'f))
+         (authenticate
+          #,(syntax->datum #'f)
+          #:as-author author-of
+          #:email email
+          #:password passwd
+          #:on-success (λ () body0 body ...)
+          #:on-failure (λ (reason) reason))))]))
+
+(define-syntax (define-jsonp/auth/curator stx)
+  (syntax-case stx ()
+    [(_ (f pat ...) body0 body ...)
+     (quasisyntax/loc stx
+       (define-jsonp (f ['email email] ['passwd passwd] pat ...)
+         (log! "~a handler" #,(syntax->datum #'f))
+         (authenticate
+          #,(syntax->datum #'f)
+          #:as-curator #t
+          #:email email
+          #:password passwd
+          #:on-success (λ () body0 body ...)
+          #:on-failure (λ (reason) reason))))]))
 
 (define email-codes (make-hash))
 (define-jsonp (jsonp/authenticate ['email email] ['passwd passwd] ['code email-code])
+  (log! "authenticate handler")
   (define (generate-a-code email)
     (define correct-email-code
       (number->string (random (expt 10 8))))
@@ -76,6 +105,7 @@
    #:on-success (λ () (hasheq 'curation (curation-administrator? email))) ; XXX expose this?
    #:on-failure
    (λ (reason)
+     (log! (format "login failed with reason ~a" reason))
      (match reason
        ['bad-password
         (check-code-or
@@ -92,7 +122,8 @@
              ""
              (generate-a-code email)
              ""
-             "This code will expire, so if it is not available, you'll have to try to again."))))]
+             "This code will expire, so if it is not available, you'll have to try to again."))
+           #f))]
        ['new-user
         (check-code-or
          (λ () #t)
@@ -108,14 +139,17 @@
              ""
              (generate-a-code email)
              ""
-             "This code will expire, so if it is not available, you'll have to try to register again."))))]))))
+             "This code will expire, so if it is not available, you'll have to try to register again."))
+           #f))]))))
 
 (define-jsonp/auth (jsonp/update)
-  (signal-update! (packages-of (authenticated-as))))
+  (signal-update! (packages-of (authenticated-as)))
+  #t)
 
 (define-jsonp/auth/author (jsonp/package/del ['pkg pkg])
   (package-remove! pkg)
-  (signal-static! empty))
+  (signal-static! empty)
+  #t)
 
 (define-jsonp/auth
   (jsonp/package/modify
@@ -128,7 +162,8 @@
                                   'author (authenticated-as)
                                   'description mn-desc
                                   'last-edit (current-seconds)))
-       (signal-update! (list mn-name)))]
+       (signal-update! (list mn-name))
+       #t)]
     [else
      (let ([pkg-info (package-info pkg)])
        (cond
@@ -138,7 +173,8 @@
                                         'source mn-source
                                         'description mn-desc
                                         'last-edit (current-seconds)))
-          (signal-update! (list pkg))]
+          (signal-update! (list pkg))
+          #t]
          [(not (package-exists? mn-name))
           (package-info-set! (hash-set* pkg-info
                                         'name mn-name
@@ -146,7 +182,8 @@
                                         'description mn-desc
                                         'last-edit (current-seconds)))
           (package-remove! pkg)
-          (signal-update! (list mn-name))]
+          (signal-update! (list mn-name))
+          #t]
          [else #f]))]))
 
 (define-jsonp/auth/author (jsonp/package/version/add ['pkg pkg] ['version version] ['source source])
@@ -157,7 +194,8 @@
                                                 (hasheq 'source source
                                                         'checksum ""))
                                       hash)))
-    (signal-update! (list pkg))))
+    (signal-update! (list pkg))
+    #t))
 
 (define-jsonp/auth/author (jsonp/package/version/del ['pkg pkg] ['version version])
   (let ([pkg-info (package-info pkg)])
@@ -165,19 +203,22 @@
                                     (λ (v-ht)
                                       (hash-remove v-ht version))
                                     hash))
-    (signal-update! (list pkg))))
+    (signal-update! (list pkg))
+    #t))
 
 (define-jsonp/auth (jsonp/package/tag/add ['pkg pkg] ['tag tag])
   (let* ([pkg-info (package-info pkg)]
          [new-tags (package-tags-normalize (cons tag (package-ref pkg-info 'tags)))])
     (package-info-set! (hash-set pkg-info 'tags new-tags))
-    (signal-static! (list pkg))))
+    (signal-static! (list pkg))
+    #t))
 
 (define-jsonp/auth/author (jsonp/package/tag/del ['pkg pkg] ['tag tag])
   (let* ([pkg-info (package-info pkg)]
          [new-tags (remove tag (package-ref pkg-info 'tags))])
     (package-info-set! (hash-set pkg-info 'tags new-tags))
-    (signal-static! (list pkg))))
+    (signal-static! (list pkg))
+    #t))
 
 (define-jsonp/auth/author (jsonp/package/author/add ['pkg pkg] ['author author])
   (let* ([pkg-info (package-info pkg)]
@@ -201,7 +242,8 @@
   (let* ([info (package-info pkg)]
          [ring-n (string->number ring-s)])
     (package-info-set! (hash-set info 'ring (min 2 (max 0 ring-n))))
-    (signal-static! (list pkg))))
+    (signal-static! (list pkg))
+    #t))
 
 (define (api/upload req)
   (define req-data (read (open-input-bytes (or (request-post-data/raw req) #""))))
@@ -257,18 +299,9 @@
    [("jsonp" "package" "author" "del") jsonp/package/author/del]
    [("jsonp" "package" "curate") jsonp/package/curate]
    [("api" "upload") #:method "post" api/upload]
-   [("jsonp" "notice") jsonp/notice]
-   [else redirect-to-static]))
+   [("jsonp" "notice") jsonp/notice]))
 
-(define (redirect-to-static req)
-  (redirect-to
-   (url->string
-    (struct-copy url (request-uri req)
-                 [scheme "http"]
-                 [host "pkgs.racket-lang.org"]
-                 [port 80]))))
-
-(define (go port)
+(define (go)
   (log! "launching on port ~v" port)
   (signal-static! empty)
   (thread
@@ -277,9 +310,9 @@
       (log! "update-t: Running scheduled build update.")
       (signal-build-update!)
       (log! "update-t: Running scheduled update.")
-      (signal-update!/beat empty)
-      (log! "update-t: sleeping for 1 hour")
-      (sleep (* 1 60 60)))))
+      (signal-update! empty)
+      (log! "update-t: sleeping for 1 min")
+      (sleep 60)))) ;(* 1 60 60)))))
   (serve/servlet
    main-dispatch
    #:command-line? #t
@@ -287,12 +320,14 @@
    ;; this will help?
    #:connection-close? #t
    #:listen-ip #f
-   #:ssl? #t
-   #:ssl-cert ssl-cert-path
-   #:ssl-key ssl-key-path
-   #:extra-files-paths empty
+   #:ssl? (eq? scheme "https")
+   #:ssl-cert (if (eq? scheme "https") ssl-cert-path #f)
+   #:ssl-key (if (eq? scheme "https") ssl-key-path #f)
+   #:extra-files-paths (list static-path)
    #:servlet-regexp #rx""
    #:port port))
 
 (module+ main
-  (go 9904))
+  (require "init.rkt")
+  (initialize)
+  (go))

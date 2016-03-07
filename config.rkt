@@ -1,6 +1,7 @@
 #lang racket/base
 
-(require racket/runtime-path)
+(require racket/runtime-path
+         net/url)
 
 (provide (all-defined-out))
 
@@ -27,3 +28,10 @@
     "mflatt@cs.utah.edu"
     "samth@ccs.neu.edu"
     "stamourv@racket-lang.org"))
+
+(define scheme "http")
+(define host "localhost")
+(define port 8000)
+
+(define pkg-url
+  (url scheme #f host port #f '() '() #f))

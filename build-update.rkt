@@ -1,16 +1,22 @@
 #lang racket/base
-(require racket/list
-         racket/match
+
+(require racket/match
          racket/file
          racket/port
-         net/http-client
-         (prefix-in pkg: pkg/lib)
-         "common.rkt"
-         "notify.rkt")
+         racket/list
+         net/http-client)
+
+(require "config.rkt"
+         "log.rkt"
+         "notify.rkt"
+         "utils.rkt")
+
+(provide do-build-update!
+         signal-build-update!)
 
 (define SUMMARY-HOST "pkg-build.racket-lang.org")
-(define SUMMARY-URL (string-append "/" SUMMARY-NAME))
-(define SUMMARY-ETAG-PATH (build-path cache-path (format "~a.etag" SUMMARY-NAME)))
+(define SUMMARY-URL "/summary.rktd")
+(define SUMMARY-ETAG-PATH (string->path (format "~a.etag" (path->string summary-path))))
 
 (define (extract-tag hs)
   (or
@@ -33,7 +39,7 @@
   (define cur-version
     (file->bytes* SUMMARY-ETAG-PATH #""))
   (log! "build-update: Current: ~v\n" cur-version)
-
+  (printf "host: ~a~nurl: ~a~n" SUMMARY-HOST SUMMARY-URL)
   (define-values
     (_0 head-headers _1)
     (http-sendrecv
@@ -65,7 +71,7 @@
       (λ ()
         (write-bytes get-version)))
 
-    (rename-file-or-directory new-file SUMMARY-PATH #t)))
+    (rename-file-or-directory new-file summary-path #t)))
 
 (define (do-build-update! l)
   (notify! "package build status being checked for updates")
@@ -76,9 +82,6 @@
 (define run-sema (make-semaphore 1))
 (define (signal-build-update!)
   (safe-run! run-sema (λ () (run-build-update!))))
-
-(provide do-build-update!
-         signal-build-update!)
 
 (module+ main
   (require racket/cmdline)

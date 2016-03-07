@@ -1,9 +1,10 @@
 var build_host = "http://pkg-build.racket-lang.org/";
-var dynamic_host = "pkgd.racket-lang.org";
-var dynamic_port = 443;
+// var dynamic_host = "pkgd.racket-lang.org";
+// var dynamic_port = 443;
 
 function dynamic_url ( u ) {
-    return "https://" + dynamic_host + ":" + dynamic_port + u + "?callback=?"; }
+    return "" + u + "?callback=?"; }
+//    return "https://" + dynamic_host + ":" + dynamic_port + u + "?callback=?"; }
 
 function me () {
     return localStorage['email']; }
@@ -94,7 +95,6 @@ $( document ).ready(function() {
     var target_pkg = false;
     function update_info( pkgi ) {
         update_package_on_list ( pkgi );
-        // console.log( pkgi );
         change_hash( "[" + pkgi['name'] + "]" );
        
         var mypkg_p = ($.inArray(me(), pkgi['authors'] ) != -1);
@@ -545,7 +545,7 @@ $( document ).ready(function() {
     pollNotice();
 
     var pkgdb = {};
-    $.getJSON( "/pkgs-all.json.gz", function( resp ) {
+    $.getJSON( "/pkgs-all.json", function( resp ) {
         pkgdb = resp;
 
         var names = object_keys(pkgdb);

@@ -23,7 +23,7 @@
   (cond
     [(not (file-exists? password-path)) 'new-user]
     [(let ([expected-password (file->bytes password-path)])
-       (bcrypt:check expected-password given-password)) #t]
+       (bcrypt:check expected-password (string->bytes/utf-8 given-password))) #t]
     [else 'bad-password]))
 
 (define (check-author email pkg)
