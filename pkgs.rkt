@@ -9,19 +9,24 @@
 
 (require "config.rkt"
          "utils.rkt"
-         "validate.rkt")
+         "validate.rkt"
+         "monitor.rkt")
 
 (provide
  (contract-out
   [package-list (-> (listof valid-name?))]
   [packages-of (-> valid-author? (listof valid-name?))]
   [package-info (-> valid-name? (or/c package-info/c #f))]
-  [package-info-set! (-> package-info/c void)]
+  [package-info-set! (->a ([pkg package-info/c])
+                          #:auth (pkg) (is-author/c pkg)
+                          [result void])]
   [package-ref (-> package-info/c package-info-key? any/c)]
   [package-author? (-> package-info/c valid-author? boolean?)]
   [package-authors (-> package-info/c (listof valid-author?))]
   [package-tags-normalize (-> (listof valid-tag?) (listof valid-tag?))]
-  [package-remove! (-> valid-name? void)]
+  [package-remove! (->a ([pkg-name valid-name?])
+                        #:auth (pkg-name) (is-author/c (package-info pkg-name))
+                        [result void])]
   [package-exists? (-> valid-name? boolean?)]))
 
 (define (package-list)
