@@ -1,6 +1,7 @@
 #lang racket/base
 
-(require racket/list
+(require racket/contract
+         racket/list
          racket/set
          racket/match
          racket/path
@@ -19,9 +20,11 @@
          "pkgs.rkt"
          "build-summary.rkt"
          "basic.rkt"
-         "utils.rkt")
+         "utils.rkt"
+         "monitor.rkt")
 
-(provide signal-static! do-static)
+(provide (contract-out [signal-static! authority-closure/c])
+         do-static)
 
 (define (update-package-info pkg-name)
   (log! "static: building ht for ~v" pkg-name)
@@ -372,7 +375,6 @@
 (define (do-static pkgs)
   (notify! "update upload being computed: the information below may not represent all recent changes and updates")
   (define changed-pkgs (generate-static pkgs))
-  ;(signal-s3! changed-pkgs)
   changed-pkgs)
 
 (define run-sema (make-semaphore 1))

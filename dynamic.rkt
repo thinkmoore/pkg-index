@@ -44,11 +44,11 @@
        (define-jsonp (f ['email email] ['passwd passwd] pat ...)
          (log! "~a handler" #,(syntax->datum #'f))
          (authenticate
-          #,(syntax->datum #'f)
-          #:email email
-          #:password passwd
-          #:on-success (λ () body0 body ...)
-          #:on-failure (λ (reason) reason))))]))
+          '#,(syntax->datum #'f)
+          email
+          passwd
+          (λ () body0 body ...)
+          (λ (reason) reason))))]))
 
 (define email-codes (make-hash))
 (define-jsonp (jsonp/authenticate ['email email] ['passwd passwd] ['code email-code])
@@ -72,10 +72,9 @@
       [else (onNoCode)]))
   (authenticate
    'jsonp/authenticate
-   #:email email
-   #:password passwd
-   #:on-success (λ () (hasheq 'curation (curation-administrator? email))) ; XXX expose this?
-   #:on-failure
+   email
+   passwd
+   (λ () (hasheq 'curation (curation-administrator? email))) ; XXX expose this?
    (λ (reason)
      (log! (format "login failed with reason ~a" reason))
      (match reason
@@ -136,7 +135,6 @@
     [else
      (let ([pkg-info (package-info pkg)])
        (cond
-         [(not (package-author? pkg-info (authenticated-as))) #f]
          [(equal? mn-name pkg)
           (package-info-set! (hash-set* pkg-info
                                         'source mn-source
@@ -210,7 +208,7 @@
 (define-jsonp/auth (jsonp/package/curate ['pkg pkg] ['ring ring-s])
   (let* ([info (package-info pkg)]
          [ring-n (string->number ring-s)])
-    (package-info-set! (hash-set info 'ring (min 2 (max 0 ring-n))))
+    (package-curate! info (min 2 (max 0 ring-n)))
     (signal-static! (list pkg))
     #t))
 
@@ -219,9 +217,8 @@
   (match-define (list email given-password pis) req-data)
   (authenticate
    'api/upload
-   #:email email
-   #:password given-password
-   #:on-success
+   email
+   given-password
    (λ ()
      (log! "receiving api/upload!")
      (for ([(p more-pi) (in-hash pis)])
@@ -246,7 +243,6 @@
        (package-info-set! updated-pi))
      (signal-update! (hash-keys pis))
      (response/sexpr #t))
-   #:on-failure
    (λ (reason)
      (response/sexpr #f))))
 

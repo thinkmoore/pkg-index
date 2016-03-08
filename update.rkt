@@ -141,7 +141,8 @@
   (safe-run! run-sema (λ () (run-update! pkgs))))
 
 (provide do-update!
-         signal-update!)
+         (contract-out
+          [signal-update! authority-closure/c]))
 
 (module+ main
   (require racket/cmdline)

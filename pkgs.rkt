@@ -27,6 +27,10 @@
   [package-info-set! (->a ([pkg package-info/c])
                           #:auth (pkg) (is-author/c pkg)
                           [result void])]
+  [package-curate! (->a ([pkg package-info/c]
+                         [ring number?])
+                        #:auth () is-curator/c
+                        [result void])]
   [package-ref (-> package-info/c package-info-key? any/c)]
   [package-author? (-> package-info/c valid-author? boolean?)]
   [package-authors (-> package-info/c (listof valid-author?))]
@@ -198,6 +202,9 @@
 (define (package-info-set! pkg-info)
   (write-to-file pkg-info (extend-path pkgs-path (package-ref pkg-info 'name))
                  #:exists 'replace))
+
+(define (package-curate! pkg-info ring)
+  (package-info-set! (hash-set pkg-info 'ring ring)))
 
 (define (hash-merge from to)
   (for/fold ([to to])

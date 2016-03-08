@@ -12,12 +12,14 @@
 
 (provide
  (contract-out
-  [authenticate (->i ([operation symbol?]
-                      #:email [email string?]
-                      #:password [password (λ (x) (displayln x) (string? x))]
-                      #:on-success [success (email) (->a () #:auth () (as-user/c email) any)]
-                      #:on-failure [failure (-> symbol? any)])
-                     [result any/c])]
+  [authenticate (and/c
+                 authority-closure/c
+                 (->i ([operation symbol?]
+                       [email string?]
+                       [password string?]
+                       [success (email) (->a () #:auth () (as-user/c email) any)]
+                       [failure (-> symbol? any)])
+                      [result any/c]))]
   [update-password (-> string? string? void)])
  authenticated-as curation-administrator?)
 
@@ -43,17 +45,7 @@
     [(member email (package-authors (package-info pkg))) #t]
     [else 'not-author]))
 
-(define (authenticate operation
-                      #:email email
-                      #:password given-password
-                      #:on-success onSuccess
-                      #:on-failure onFailure)
-  (printf "recieved arguments:~n operation: ~a~n email: ~a~n password: ~a~n on-success: ~a~n on-failure: ~a~n"
-          operation
-          email
-          given-password
-          onSuccess
-          onFailure)
+(define (authenticate operation email given-password onSuccess onFailure)
   (let ([password-okay? (check-password email given-password)])
     (cond
       [(symbol? password-okay?) (onFailure password-okay?)]

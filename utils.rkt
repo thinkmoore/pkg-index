@@ -9,9 +9,10 @@
          web-server/http
          net/url)
 
+(require "monitor.rkt")
+
 (provide
  forever
- safe-run!
  hash-ref-or
  file->value*
  format-time
@@ -20,6 +21,7 @@
  string-max
  convert-to-json
  (contract-out
+  [safe-run! (-> semaphore? authority-closure/c any)]
   [extend-path (-> (or/c path-for-some-system? path-string?)
                    (or/c path-element? path-element-string?)
                    path-for-some-system?)]

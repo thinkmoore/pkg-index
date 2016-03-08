@@ -1,6 +1,7 @@
 #lang racket/base
 
-(require racket/match
+(require racket/contract
+         racket/match
          racket/file
          racket/port
          racket/list
@@ -9,10 +10,12 @@
 (require "config.rkt"
          "log.rkt"
          "notify.rkt"
-         "utils.rkt")
+         "utils.rkt"
+         "monitor.rkt")
 
 (provide do-build-update!
-         signal-build-update!)
+         (contract-out
+          [signal-build-update! authority-closure/c]))
 
 (define SUMMARY-HOST "pkg-build.racket-lang.org")
 (define SUMMARY-URL "/summary.rktd")
