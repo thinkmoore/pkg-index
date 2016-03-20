@@ -311,8 +311,8 @@
       (signal-build-update!)
       (log! "update-t: Running scheduled update.")
       (signal-update! empty)
-      (log! "update-t: sleeping for 1 min")
-      (sleep 60)))) ;(* 1 60 60)))))
+      (log! "update-t: sleeping for 1 hour")
+      (sleep (* 1 60 60)))))
   (serve/servlet
    main-dispatch
    #:command-line? #t
